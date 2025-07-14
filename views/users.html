@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        .user-table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+        .user-table th, .user-table td { padding: 0.7rem 1rem; border-bottom: 1px solid #232837; text-align: left; }
+        .user-table th { background: #232837; color: #fff; }
+        .user-table td { background: #20243a; color: #e0e3ea; }
+        .user-table tr:last-child td { border-bottom: none; }
+        .user-actions button { margin-right: 0.5rem; }
+        .user-form { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+        .user-form input, .user-form select { padding: 0.5rem; border-radius: 6px; border: none; background: #232837; color: #fff; }
+        .user-form button { background: #6c63ff; color: #fff; border: none; padding: 0.5rem 1.2rem; border-radius: 6px; font-weight: 500; cursor: pointer; }
+        .user-form button:hover { background: #554ee0; }
+        .edit-row input, .edit-row select { background: #181c24; color: #fff; border: 1px solid #6c63ff; }
+    </style>
+</head>
+<body>
+    <div class="dashboard-root">
+        <nav class="dashboard-navbar">
+            <div class="navbar-left">
+                <span class="navbar-logo"><i class="fa fa-cube"></i></span>
+                <span class="navbar-title">User Management</span>
+            </div>
+            <div class="navbar-right">
+                <a href="/dashboard" class="logout-btn"><i class="fa fa-arrow-left"></i> Back to Dashboard</a>
+            </div>
+        </nav>
+        <main class="dashboard-content-area">
+            <h2>Users</h2>
+            <form class="user-form" id="addUserForm">
+                <input type="text" id="addUsername" placeholder="Username" required>
+                <input type="password" id="addPassword" placeholder="Password" required>
+                <input type="text" id="addFullName" placeholder="Full Name" required>
+                <input type="email" id="addEmail" placeholder="Email" required>
+                <select id="addRole" required>
+                    <option value="User">User</option>
+                    <option value="Admin">Admin</option>
+                </select>
+                <button type="submit">Add User</button>
+            </form>
+            <table class="user-table" id="userTable">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Full Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </main>
+    </div>
+    <script>
+    function fetchUsers() {
+        fetch('/api/users').then(res => res.json()).then(users => {
+            const tbody = document.querySelector('#userTable tbody');
+            tbody.innerHTML = '';
+            users.forEach(user => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${user.username}</td>
+                    <td>${user.fullName}</td>
+                    <td>${user.email}</td>
+                    <td>${user.role}</td>
+                    <td>${user.lastLogin || ''}</td>
+                    <td class="user-actions">
+                        <button onclick="editUser('${user.username}')"><i class='fa fa-edit'></i></button>
+                        <button onclick="deleteUser('${user.username}')"><i class='fa fa-trash'></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+    }
+    function addUser(e) {
+        e.preventDefault();
+        fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: document.getElementById('addUsername').value,
+                password: document.getElementById('addPassword').value,
+                fullName: document.getElementById('addFullName').value,
+                email: document.getElementById('addEmail').value,
+                role: document.getElementById('addRole').value
+            })
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                fetchUsers();
+                document.getElementById('addUserForm').reset();
+            } else {
+                alert(data.error || 'Failed to add user');
+            }
+        });
+    }
+    function editUser(username) {
+        const row = Array.from(document.querySelectorAll('#userTable tbody tr')).find(tr => tr.children[0].textContent === username);
+        if (!row) return;
+        const cells = row.children;
+        row.classList.add('edit-row');
+        const fullName = cells[1].textContent;
+        const email = cells[2].textContent;
+        const role = cells[3].textContent;
+        cells[1].innerHTML = `<input type='text' value='${fullName}'>`;
+        cells[2].innerHTML = `<input type='email' value='${email}'>`;
+        cells[3].innerHTML = `<select><option value='User' ${role==='User'?'selected':''}>User</option><option value='Admin' ${role==='Admin'?'selected':''}>Admin</option></select>`;
+        cells[5].innerHTML = `
+            <button onclick="saveUser('${username}')"><i class='fa fa-save'></i></button>
+            <button onclick="fetchUsers()"><i class='fa fa-times'></i></button>
+        `;
+    }
+    function saveUser(username) {
+        const row = Array.from(document.querySelectorAll('#userTable tbody tr')).find(tr => tr.children[0].textContent === username);
+        if (!row) return;
+        const fullName = row.children[1].querySelector('input').value;
+        const email = row.children[2].querySelector('input').value;
+        const role = row.children[3].querySelector('select').value;
+        fetch(`/api/users/${username}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fullName, email, role })
+        }).then(res => res.json()).then(data => {
+            if (data.success) fetchUsers();
+            else alert(data.error || 'Failed to update user');
+        });
+    }
+    function deleteUser(username) {
+        if (!confirm('Delete this user?')) return;
+        fetch(`/api/users/${username}`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) fetchUsers();
+                else alert(data.error || 'Failed to delete user');
+            });
+    }
+    document.getElementById('addUserForm').onsubmit = addUser;
+    fetchUsers();
+    </script>
+</body>
+</html>

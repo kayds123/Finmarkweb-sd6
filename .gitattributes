@@ -1,0 +1,12 @@
+# Set the default behavior to automatically normalize line endings
+* text=auto
+
+# Force LF for all text files
+*.js text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+
+# Exclude node_modules from normalization
+node_modules/* -text

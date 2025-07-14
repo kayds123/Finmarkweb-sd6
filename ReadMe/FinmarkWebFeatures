@@ -1,0 +1,34 @@
+FinMark Dashboard
+Welcome to the FinMark Dashboard! This is a modern, dark-themed web app built with Node.js and Express. It features user login, a clean dashboard, demo data, and export options—perfect for showcasing a professional dashboard experience.
+
+Getting Started
+
+Prerequisites
+Node.js (v14 or newer)
+npm
+
+Setup Steps
+Clone this repository: 
+git clone https://github.com/JyanE26/FinmarkWeb_SD6.git
+cd FinmarkWeb_SD6
+
+Install the dependencies: npm install
+
+Start the server: node server.js
+
+Or, if you want auto-reload during development: npx nodemon server.js
+
+Open the app: Go to http://localhost:3000 in your browser.
+
+How to Use
+Login: Use any credentials from the users.json file.
+
+Dashboard: Explore your stats, recent activity, uploads, reports, and notifications.
+
+Demo Data: Use the demo/reset buttons to quickly fill the dashboard with sample data or clear it out.
+
+Export: Download logs, uploads, or reports as CSV files with a single click.
+
+Customization
+Want to add users? Just edit the users.json file.
+Want to tweak the look? Check out the style.css file.
