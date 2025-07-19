@@ -29,6 +29,14 @@
     "fullName": "Hello Love",
     "email": "hellolove@example.com",
     "role": "User",
-    "lastLogin": "7/15/2025, 4:24:46 AM"
+    "lastLogin": "7/19/2025, 6:26:13 PM"
+  },
+  {
+    "username": "User2",
+    "password": "$2b$10$Zu5NIHE6ltzXNaPS.Yv.WOpPZalRXFCrSybDW0K9YxOPkAzI.tmjq",
+    "fullName": "User two",
+    "email": "user2@gmail.com",
+    "role": "User",
+    "lastLogin": "7/16/2025, 3:35:37 PM"
   }
 ]

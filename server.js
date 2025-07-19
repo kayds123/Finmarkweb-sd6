@@ -4,11 +4,138 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
-const saltRounds = 10; // Number of salt rounds for hashing
+const saltRounds = 10;
+require('dotenv').config();
+const mongoose = require('mongoose'); // ✅ Only once
 
-const app = express();
-const PORT = 3000;
+// Use the mock Kafka client for development
+const { Kafka } = require('./kafka-mock');
+// In production, you would use the real kafkajs client:
+// const { Kafka } = require('kafkajs');
+
+
 const USERS_FILE = path.join(__dirname, 'users.json');
+const authRoutes = require('./routes/auth'); // ✅ correct
+const app = express();
+app.use(bodyParser.json()); // ✅ required to parse JSON
+
+// ✅ this must match your Postman URL path
+app.use('/api/auth', authRoutes);
+
+const PORT = process.env.PORT || 3000;
+
+
+// Initialize Kafka client
+const kafka = new Kafka({
+    clientId: 'finmark-web-app',
+    brokers: ['localhost:9092'] // This will be ignored by the mock
+});
+
+// Create a producer instance
+const producer = kafka.producer();
+
+// Create a consumer instance
+const consumer = kafka.consumer({ groupId: 'finmark-web-consumer' });
+
+// Connect to Kafka and set up consumer
+async function setupKafka() {
+    await producer.connect();
+    
+    await consumer.connect();
+    await consumer.subscribe({ topic: 'user-actions', fromBeginning: true });
+    
+    await consumer.run({
+        eachMessage: async ({ topic, partition, message }) => {
+            try {
+                // Extract the message value
+                let messageValue;
+                if (typeof message.value === 'string') {
+                    try {
+                        messageValue = JSON.parse(message.value);
+                    } catch (e) {
+                        messageValue = message.value;
+                    }
+                } else if (message.value && typeof message.value === 'object') {
+                    // If value is an object, it might be from our mock
+                    messageValue = message.value.value ? 
+                        (typeof message.value.value === 'string' ? JSON.parse(message.value.value) : message.value.value) :
+                        message.value;
+                }
+                
+                // If we have a string that looks like JSON, try to parse it
+                if (typeof messageValue === 'string' && (messageValue.startsWith('{') || messageValue.startsWith('['))) {
+                    try {
+                        messageValue = JSON.parse(messageValue);
+                    } catch (e) {
+                        // If parsing fails, keep the string as is
+                    }
+                }
+
+                // Log the message details
+                const logDetails = {
+                    topic,
+                    partition,
+                    key: message.key ? (typeof message.key === 'string' ? message.key : message.key.toString()) : null,
+                    timestamp: message.timestamp || new Date().toISOString()
+                };
+
+                // If we have a parsed object with an action, log it
+                if (messageValue && typeof messageValue === 'object') {
+                    logDetails.action = messageValue.action || 'no-action';
+                    
+                    // Handle specific actions
+                    if (messageValue.action) {
+                        switch (messageValue.action) {
+                            case 'user.login':
+                                console.log('User login detected:', {
+                                    userId: messageValue.userId || 'unknown',
+                                    username: messageValue.username || 'unknown',
+                                    timestamp: messageValue.timestamp || logDetails.timestamp
+                                });
+                                break;
+                                
+                            case 'user.logout':
+                                console.log('User logout detected:', {
+                                    userId: messageValue.userId || 'unknown',
+                                    username: messageValue.username || 'unknown',
+                                    timestamp: messageValue.timestamp || logDetails.timestamp
+                                });
+                                break;
+                                
+                            case 'test.message':
+                                console.log('Test message received:', messageValue.message || 'No message');
+                                break;
+                                
+                            default:
+                                console.log('Received message with action:', messageValue.action);
+                        }
+                    } else {
+                        console.log('Received message:', messageValue);
+                    }
+                } else {
+                    console.log('Received raw message:', messageValue);
+                }
+                
+                console.log('Message details:', logDetails);
+                
+            } catch (error) {
+                console.error('Error processing Kafka message:', error);
+                console.error('Message that caused the error:', {
+                    value: message.value,
+                    key: message.key,
+                    headers: message.headers,
+                    topic,
+                    partition
+                });
+            }
+        },
+    });
+    
+    console.log('Kafka consumer is running');
+}
+
+// Call the setup function
+setupKafka().catch(console.error);
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -151,63 +278,125 @@ function requireLogin(req, res, next) {
     next();
 }
 
+// Test Kafka route
+app.get('/test-kafka', async (req, res) => {
+    try {
+        await producer.send({
+            topic: 'user-actions',
+            messages: [{
+                key: 'test-key',
+                value: JSON.stringify({
+                    action: 'test.message',
+                    message: 'Hello Kafka!',
+                    timestamp: new Date().toISOString()
+                })
+            }]
+        });
+        res.send('Test message sent to Kafka! Check your server console for the received message.');
+    } catch (error) {
+        console.error('Error sending message:', error);
+        res.status(500).send('Error sending message to Kafka');
+    }
+});
+
+// Login route with proper session handling
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        // Load users from file
+        const users = loadUsers();
+        const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+        
+        if (!user) {
+            console.log('Login failed: User not found -', username);
+            return res.status(401).send('Invalid username or password');
+        }
+        
+        // Compare password with bcrypt
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            console.log('Login failed: Invalid password for user -', username);
+            return res.status(401).send('Invalid username or password');
+        }
+        
+        // Update last login time
+        user.lastLogin = new Date().toLocaleString();
+        saveUsers(users);
+        
+        // Set session variables
+        req.session.loggedIn = true;
+        req.session.user = {
+            id: user.id || user.username,
+            username: user.username,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            lastLogin: user.lastLogin
+        };
+        
+        console.log('Login successful for user:', user.username);
+        
+        // Send login event to Kafka
+        try {
+            await producer.send({
+                topic: 'user-actions',
+                messages: [{
+                    key: user.id || user.username,
+                    value: JSON.stringify({
+                        action: 'user.login',
+                        userId: user.id || user.username,
+                        username: user.username,
+                        timestamp: new Date().toISOString(),
+                        userAgent: req.headers['user-agent']
+                    })
+                }]
+            });
+        } catch (kafkaError) {
+            console.error('Error sending Kafka message:', kafkaError);
+            // Don't fail the login if Kafka fails
+        }
+        
+        res.redirect('/dashboard');
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).send('Error during login');
+    }
+});
+// Example logout route with Kafka integration
+app.post('/logout', async (req, res) => {
+    if (req.session.userId) {
+        // Send logout event to Kafka
+        await producer.send({
+            topic: 'user-actions',
+            messages: [{
+                key: req.session.userId,
+                value: JSON.stringify({
+                    action: 'user.logout',
+                    userId: req.session.userId,
+                    username: req.session.username,
+                    timestamp: new Date().toISOString()
+                })
+            }]
+        });
+    }
+    
+    // Destroy the session
+    req.session.destroy(err => {
+        if (err) {
+            console.error('Error destroying session:', err);
+            return res.status(500).send('Error logging out');
+        }
+        res.redirect('/login');
+    });
+});
+
 // Routes
 app.get('/', (req, res) => {
     if (req.session.loggedIn) {
         return res.redirect('/dashboard');
     }
     res.sendFile(path.join(__dirname, 'views', 'index.html'));
-});
-
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    console.log('=== Login Attempt ===');
-    console.log('Input username/email:', username);
-    console.log('Input password length:', password ? password.length : 0);
-    
-    const users = loadUsers();
-    console.log('Available users:', JSON.stringify(users, null, 2));
-    
-    const user = users.find(u => {
-        const usernameMatch = u.username === username;
-        const emailMatch = u.email === username;
-        console.log(`Checking user ${u.username} - username match: ${usernameMatch}, email match: ${emailMatch}`);
-        return usernameMatch || emailMatch;
-    });
-    
-    if (user) {
-        console.log('Found user:', user.username);
-        console.log('Stored password length:', user.password ? user.password.length : 0);
-        console.log('Provided password length:', password ? password.length : 0);
-        
-        bcrypt.compare(password, user.password, (err, result) => {
-            if (err) {
-                console.error('Error comparing passwords:', err);
-                return res.status(500).send('Internal server error');
-            }
-            
-            if (result) {
-                console.log('Authentication successful!');
-                user.lastLogin = new Date().toLocaleString();
-                saveUsers(users);
-                req.session.loggedIn = true;
-                req.session.user = {
-                    username: user.username,
-                    fullName: user.fullName,
-                    email: user.email,
-                    role: user.role,
-                    lastLogin: user.lastLogin
-                };
-                return res.redirect('/dashboard');
-            } else {
-                console.log('Password mismatch!');
-                res.status(401).send('Invalid username or password');
-            }
-        });
-    } else {
-        console.log('No user found with username/email:', username);
-        res.status(401).send('Invalid username or password');
-    }
 });
 
 app.get('/dashboard', requireLogin, (req, res) => {
@@ -371,15 +560,79 @@ app.post('/api/demo/clear', requireLogin, (req, res) => {
     res.json({success:true});
 });
 
-// Helper function to save users to JSON file
-function saveUsersToFile(users) {
-    const fs = require('fs');
-    const path = require('path');
-    const filePath = path.join(__dirname, 'users.json');
-    
-    fs.writeFileSync(filePath, JSON.stringify(users, null, 2), 'utf8');
-}
+// Example route that uses Kafka producer
+app.post('/api/track-action', requireLogin, async (req, res) => {
+    try {
+        const { action, data } = req.body;
+        
+        await producer.send({
+            topic: 'user-actions',
+            messages: [
+                {
+                    key: req.session.userId,
+                    value: JSON.stringify({
+                        action,
+                        data,
+                        timestamp: new Date().toISOString(),
+                        userId: req.session.userId,
+                        userAgent: req.headers['user-agent']
+                    })
+                },
+            ],
+        });
+
+        res.json({ success: true, message: 'Action tracked successfully' });
+    } catch (error) {
+        console.error('Error tracking action:', error);
+        res.status(500).json({ success: false, error: 'Failed to track action' });
+    }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+    console.log('SIGTERM received. Shutting down gracefully...');
+    await Promise.all([
+        producer.disconnect(),
+        consumer.disconnect(),
+    ]);
+    process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+    console.log('SIGINT received. Shutting down gracefully...');
+    await Promise.all([
+        producer.disconnect(),
+        consumer.disconnect(),
+    ]);
+    process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+    console.log('SIGINT received. Shutting down gracefully...');
+    await Promise.all([
+        producer.disconnect(),
+        consumer.disconnect(),
+    ]);
+    process.exit(0);
+});
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
+
+app.use(bodyParser.json());
+app.use('/api/auth', authRoutes);
+
+// Connect to MongoDB and start server
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => {
+  // The server is already started above, so you may remove this duplicate listen
+  // Optionally, you can log MongoDB connection success here
+  console.log("MongoDB connected successfully");
+})
+.catch(err => console.error("MongoDB connection error:", err));
+
+app.use('/api/auth', authRoutes); // ✅ Mounts /dashboard at /api/auth/dashboard
