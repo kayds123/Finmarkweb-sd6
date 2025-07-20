@@ -8,6 +8,8 @@ const saltRounds = 10;
 require('dotenv').config();
 const mongoose = require('mongoose'); // ✅ Only once
 
+
+
 // Use the mock Kafka client for development
 const { Kafka } = require('./kafka-mock');
 // In production, you would use the real kafkajs client:
@@ -21,6 +23,9 @@ app.use(bodyParser.json()); // ✅ required to parse JSON
 
 // ✅ this must match your Postman URL path
 app.use('/api/auth', authRoutes);
+app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+
 
 const PORT = process.env.PORT || 3000;
 

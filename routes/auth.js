@@ -7,41 +7,28 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 
 router.post('/register', async (req, res) => {
-  const { email, password } = req.body;
-
   try {
-    const hash = await bcrypt.hash(password, 10);
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ message: 'Missing fields' });
 
-    const mfaSecret = speakeasy.generateSecret({
-      name: `Finmark (${email})`,
-      length: 20
+    const hashedPassword = await bcrypt.hash(password, 10); // ✅ now inside an async function
+
+    // proceed to create and store user...
+    const newUser = new User({
+      email,
+      password: hashedPassword,
+      // ... other fields
     });
 
-    const user = new User({
-  email,
-  username: req.body.username,
-  fullName: req.body.fullName,
-  role: req.body.role || 'User',
-  password: hashedPassword,
-  mfa: {
-    secret: mfaSecret.base32,
-    enabled: true
-  }
-});
-
-    await user.save();
-
-    res.json({
-      message: "User registered with MFA",
-      mfaSecret: mfaSecret.base32,
-      otpauth_url: mfaSecret.otpauth_url
-    });
-
+    await newUser.save();
+    res.status(201).json({ message: 'User registered successfully' });
+    
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error during registration" });
+    res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 router.post('/setup-mfa', async (req, res) => {
   const { email } = req.body;

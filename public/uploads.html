@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uploads - Finmark</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        .upload-container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .upload-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .upload-header h1 {
+            color: #e0e0e0;
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #4a4e69;
+            color: #e0e0e0;
+        }
+        
+        .btn-primary {
+            background: #6c5ce7;
+            color: white;
+        }
+        
+        .upload-area {
+            background: #2a2d41;
+            border: 2px dashed #4a4e69;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #6c5ce7;
+            background: rgba(108, 92, 231, 0.1);
+        }
+        
+        .upload-area i {
+            font-size: 48px;
+            color: #6c5ce7;
+            margin-bottom: 15px;
+        }
+        
+        .upload-area h3 {
+            color: #e0e0e0;
+            margin: 10px 0;
+            font-size: 1.25rem;
+        }
+        
+        .upload-area p {
+            color: #a0a0a0;
+            margin: 5px 0;
+        }
+        
+        .upload-btn {
+            display: inline-block;
+            background: #6c5ce7;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        
+        .files-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .files-table th {
+            text-align: left;
+            padding: 12px 15px;
+            color: #a0a0a0;
+            font-weight: 500;
+            border-bottom: 1px solid #3a3d5a;
+        }
+        
+        .files-table td {
+            padding: 15px;
+            border-bottom: 1px solid #3a3d5a;
+            color: #e0e0e0;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background: #3a3d5a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            color: #6c5ce7;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+        
+        .file-meta {
+            font-size: 0.85rem;
+            color: #a0a0a0;
+            margin-top: 3px;
+        }
+        
+        .action-btn {
+            background: none;
+            border: none;
+            color: #a0a0a0;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            margin: 0 3px;
+        }
+        
+        .action-btn:hover {
+            color: #6c5ce7;
+            background: rgba(108, 92, 231, 0.1);
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .status-completed {
+            background: rgba(46, 213, 115, 0.1);
+            color: #2ed573;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+            gap: 5px;
+        }
+        
+        .page-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #3a3d5a;
+            background: #2a2d41;
+            color: #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .page-btn.active {
+            background: #6c5ce7;
+            border-color: #6c5ce7;
+        }
+        
+        .page-btn:hover:not(.active) {
+            background: #3a3d5a;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-root">
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-logo"><i class="fa fa-cube"></i> FinMark</div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="sidebar-btn"><i class="fa fa-home"></i> Dashboard</a>
+                <a href="/uploads" class="sidebar-btn active"><i class="fa fa-upload"></i> Uploads</a>
+                <a href="#" class="sidebar-btn" onclick="alert('Coming soon')"><i class="fa fa-chart-bar"></i> Reports</a>
+                <a href="#" class="sidebar-btn" onclick="alert('Coming soon')"><i class="fa fa-list"></i> Logs</a>
+                <a href="#" class="sidebar-btn" onclick="alert('Coming soon')"><i class="fa fa-cog"></i> Settings</a>
+            </nav>
+        </aside>
+        <div class="dashboard-main-layout">
+            <nav class="dashboard-navbar">
+                <div class="navbar-right">
+                    <span id="navbarWelcome">Welcome, <span id="navbarUser">User</span>!</span>
+                    <span id="navbarDate"></span>
+                    <span class="navbar-avatar" id="navbarAvatar"></span>
+                    <a href="/logout" class="logout-btn"><i class="fa fa-sign-out-alt"></i></a>
+                </div>
+            </nav>
+            <main class="dashboard-content-area">
+                <div class="upload-container">
+                    <div class="upload-header">
+                        <h1>Uploads</h1>
+                        <div class="upload-actions">
+                            <button class="btn btn-outline">
+                                <i class="fas fa-file-export"></i> Export
+                            </button>
+                            <button class="btn btn-primary">
+                                <i class="fas fa-plus"></i> New Upload
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="upload-area" id="dropArea">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>Drag & Drop files here</h3>
+                        <p>or</p>
+                        <div class="upload-btn">Browse Files</div>
+                        <input type="file" id="fileInput" style="display: none;">
+                    </div>
+                    
+                    <div class="panel">
+                        <div class="panel-header" style="margin-bottom: 20px;">
+                            <h3>Recent Uploads</h3>
+                            <div class="filters" style="display: flex; gap: 10px;">
+                                <select style="background: #2a2d41; border: 1px solid #3a3d5a; color: #e0e0e0; padding: 8px; border-radius: 4px;">
+                                    <option>All Files</option>
+                                    <option>PDF</option>
+                                    <option>Excel</option>
+                                    <option>Word</option>
+                                    <option>Image</option>
+                                </select>
+                                <input type="text" placeholder="Search files..." style="background: #2a2d41; border: 1px solid #3a3d5a; color: #e0e0e0; padding: 8px; border-radius: 4px; width: 200px;">
+                            </div>
+                        </div>
+                        
+                        <table class="files-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Uploaded By</th>
+                                    <th>Date</th>
+                                    <th>Size</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                        
+                        <div class="pagination">
+                            <button class="page-btn"><i class="fas fa-chevron-left"></i></button>
+                            <button class="page-btn active">1</button>
+                            <button class="page-btn">2</button>
+                            <button class="page-btn">3</button>
+                            <button class="page-btn"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script>
+        // Update user info and date
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set current date
+            const dateElement = document.getElementById('navbarDate');
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            dateElement.textContent = new Date().toLocaleDateString('en-US', options);
+            
+            // Set user info
+            const userElement = document.getElementById('navbarUser');
+            const avatarElement = document.getElementById('navbarAvatar');
+            
+            // Get user data from session
+            fetch('/api/user')
+                .then(response => response.json())
+                .then(user => {
+                    userElement.textContent = user.fullName || 'User';
+                    // Set avatar initials
+                    const initials = user.fullName 
+                        ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase()
+                        : 'U';
+                    avatarElement.textContent = initials;
+                })
+                .catch(() => {
+                    // Fallback if API call fails
+                    userElement.textContent = 'User';
+                    avatarElement.textContent = 'U';
+                });
+            
+            // File Upload Functionality
+            const dropArea = document.getElementById('dropArea');
+            const fileInput = document.getElementById('fileInput');
+            const filesTable = document.querySelector('.files-table tbody');
+            
+            // Array to store uploaded files (in a real app, this would come from the server)
+            let files = [];
+            
+            // Render files in the table
+            function renderFiles() {
+                filesTable.innerHTML = '';
+                
+                if (files.length === 0) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = '<td colspan="6" style="text-align: center; padding: 20px;">No files uploaded yet</td>';
+                    filesTable.appendChild(row);
+                    return;
+                }
+                
+                files.forEach((file, index) => {
+                    const row = document.createElement('tr');
+                    const fileType = getFileType(file.name);
+                    const fileIcon = getFileIcon(fileType);
+                    
+                    row.innerHTML = `
+                        <td>
+                            <div class="file-info">
+                                <div class="file-icon">
+                                    <i class="${fileIcon}"></i>
+                                </div>
+                                <div>
+                                    <div class="file-name">${file.name}</div>
+                                    <div class="file-meta">${fileType} • ${formatFileSize(file.size)}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${file.uploadedBy || 'You'}</td>
+                        <td>${file.uploadDate || new Date().toLocaleDateString()}</td>
+                        <td>${formatFileSize(file.size)}</td>
+                        <td><span class="status-badge status-completed">Completed</span></td>
+                        <td>
+                            <button class="action-btn" title="Download" onclick="downloadFile(${index})">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="action-btn" title="Share" onclick="shareFile(${index})">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+                            <button class="action-btn" title="Delete" onclick="deleteFile(${index})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    filesTable.appendChild(row);
+                });
+            }
+            
+            // Get file type from extension
+            function getFileType(filename) {
+                const ext = filename.split('.').pop().toLowerCase();
+                const types = {
+                    'pdf': 'PDF',
+                    'xls': 'Excel', 'xlsx': 'Excel',
+                    'doc': 'Word', 'docx': 'Word',
+                    'jpg': 'Image', 'jpeg': 'Image', 'png': 'Image', 'gif': 'Image',
+                    'txt': 'Text',
+                    'zip': 'Archive', 'rar': 'Archive', '7z': 'Archive'
+                };
+                return types[ext] || 'File';
+            }
+            
+            // Get icon for file type
+            function getFileIcon(fileType) {
+                const icons = {
+                    'PDF': 'fas fa-file-pdf',
+                    'Excel': 'fas fa-file-excel',
+                    'Word': 'fas fa-file-word',
+                    'Image': 'fas fa-file-image',
+                    'Text': 'fas fa-file-alt',
+                    'Archive': 'fas fa-file-archive',
+                    'File': 'fas fa-file'
+                };
+                return icons[fileType] || 'fas fa-file';
+            }
+            
+            // Format file size
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            // Handle file selection
+            function handleFiles(selectedFiles) {
+                const newFiles = Array.from(selectedFiles).map(file => ({
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    file: file,
+                    uploadDate: new Date().toLocaleDateString(),
+                    status: 'completed'
+                }));
+                
+                files = [...files, ...newFiles];
+                renderFiles();
+            }
+            
+            // Drag and drop functionality
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            // Handle dropped files
+            dropArea.addEventListener('drop', function(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            });
+            
+            // Handle file input
+            fileInput.addEventListener('change', function() {
+                handleFiles(this.files);
+                this.value = ''; // Reset input to allow selecting the same file again
+            });
+            
+            // Click on drop area to open file dialog
+            dropArea.addEventListener('click', () => fileInput.click());
+            
+            // Prevent default drag behaviors
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            // Highlight drop area
+            function highlight() {
+                dropArea.style.borderColor = '#6c5ce7';
+                dropArea.style.backgroundColor = 'rgba(108, 92, 231, 0.1)';
+            }
+            
+            // Remove highlight
+            function unhighlight() {
+                dropArea.style.borderColor = '#4a4e69';
+                dropArea.style.backgroundColor = '#2a2d41';
+            }
+            
+            // Make functions available globally
+            window.downloadFile = function(index) {
+                const file = files[index];
+                // Create a temporary link and trigger download
+                const url = URL.createObjectURL(file.file);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = file.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+            
+            window.shareFile = function(index) {
+                const file = files[index];
+                alert(`Sharing: ${file.name}`);
+                // In a real app, this would open a share dialog
+                // Example: navigator.share({ title: file.name, url: `/files/${file.id}` });
+            };
+            
+            window.deleteFile = function(index) {
+                if (confirm(`Are you sure you want to delete ${files[index].name}?`)) {
+                    files.splice(index, 1);
+                    renderFiles();
+                }
+            };
+            
+            // Initial render
+            renderFiles();
+        });
+    </script>
+</body>
+</html>
