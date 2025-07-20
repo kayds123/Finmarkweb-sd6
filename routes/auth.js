@@ -7,27 +7,43 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 
 router.post('/register', async (req, res) => {
+  const { email, password } = req.body;
+
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Missing fields' });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
-    const hashedPassword = await bcrypt.hash(password, 10); // ✅ now inside an async function
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // proceed to create and store user...
-    const newUser = new User({
+    // Generate MFA secret
+    const mfaSecret = speakeasy.generateSecret({ name: `Finmark (${email})` });
+
+    const user = new User({
       email,
       password: hashedPassword,
-      // ... other fields
+      mfa: {
+        enabled: false,
+        secret: mfaSecret.base32,
+      },
     });
 
-    await newUser.save();
-    res.status(201).json({ message: 'User registered successfully' });
-    
+    await user.save();
+
+    //  Generate QR code for Google Authenticator
+    const qrCodeDataURL = await qrcode.toDataURL(mfaSecret.otpauth_url);
+
+    // Send QR to frontend
+    res.status(201).json({
+      message: 'User registered. Scan QR with Google Authenticator.',
+      qrCode: qrCodeDataURL,
+      email: user.email,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 
 router.post('/setup-mfa', async (req, res) => {
@@ -117,6 +133,26 @@ router.post('/verify-mfa', async (req, res) => {
   res.status(200).json({ message: 'MFA verified', token: jwtToken });
 });
 
+router.post('/verify-mfa-register', async (req, res) => {
+  const { email, token } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  const verified = speakeasy.totp.verify({
+    secret: user.mfaSecret,
+    encoding: 'base32',
+    token
+  });
+
+  if (verified) {
+    const jwtToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token: jwtToken });
+  } else {
+    res.status(400).json({ message: 'Invalid MFA code' });
+  }
+});
+
 router.post('/verify-mfa-login', async (req, res) => {
   const { email, token } = req.body;
 
@@ -183,29 +219,25 @@ router.post('/verify-mfa', async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-
-    if (!user || !user.mfa || !user.mfa.secret) {
-      return res.status(400).json({ message: "MFA not setup for this user" });
-    }
+    if (!user || !user.mfa?.secret) return res.status(400).json({ message: 'User or MFA not found' });
 
     const verified = speakeasy.totp.verify({
       secret: user.mfa.secret,
       encoding: 'base32',
-      token
+      token,
     });
 
-    if (!verified) {
-      return res.status(401).json({ message: 'Invalid MFA token' });
+    if (verified) {
+      user.mfa.enabled = true;
+      await user.save();
+
+      // Generate JWT token or success message
+      const jwtToken = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      return res.status(200).json({ message: 'MFA verified', token: jwtToken });
+    } else {
+      return res.status(400).json({ message: 'Invalid MFA token' });
     }
-
-    // MFA passed ✅
-    const jwtToken = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    return res.json({ message: 'MFA verified', token: jwtToken });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

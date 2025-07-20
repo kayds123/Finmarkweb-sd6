@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Register - Finmark</title>
+  <title>Finmark Register</title>
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
 </head>
 <body>
   <div class="login-split">
@@ -15,37 +15,34 @@
         <span class="login-brand">Finmark</span>
       </div>
       <h1 class="login-title">Create your account</h1>
+      <p class="login-subtitle">Register to get started</p>
+
+      <!-- Registration Form -->
       <form id="registerForm">
         <div class="input-group">
-          <label class="input-label" for="name">Name</label>
-          <input type="text" id="name" name="name" required placeholder="Full Name" />
+          <label for="email" class="input-label">Email</label>
+          <input type="email" id="email" name="email" placeholder="Enter your email" required />
         </div>
         <div class="input-group">
-          <label class="input-label" for="email">Email</label>
-          <input type="email" id="email" name="email" required placeholder="Email" />
+          <label for="password" class="input-label">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required />
         </div>
-        <div class="input-group">
-          <label class="input-label" for="password">Password</label>
-          <input type="password" id="password" name="password" required placeholder="Password" />
-        </div>
-        <button type="submit" class="login-btn" id="registerBtn">
-          <span id="registerBtnText">Sign Up</span>
-          <span id="spinner" style="display:none;"><i class="fa fa-spinner fa-spin"></i></span>
-        </button>
-        <div class="error" id="errorMsg"></div>
-        <div class="signup-footer">
-          Already have an account? <a href="/index.html" class="link">Login</a>
-        </div>
+        <button type="submit" class="login-btn">Register</button>
+        <div class="error" id="registerError"></div>
       </form>
 
-      <div id="mfaSection" style="display:none; margin-top: 20px;">
-        <p>Scan the QR code with your Google Authenticator app:</p>
-        <img id="qrCode" src="" alt="QR Code" style="width: 200px; height: 200px; margin: 1rem 0;" />
-        <div class="input-group">
-          <label class="input-label" for="mfaToken">Enter MFA Code</label>
-          <input type="text" id="mfaToken" placeholder="123456" />
-        </div>
-        <button id="verifyMfaBtn" class="login-btn">Verify MFA</button>
+      <!-- MFA QR and Verification -->
+      <div id="mfaSection" style="display: none; margin-top: 20px;">
+        <h3>Scan MFA QR Code</h3>
+        <p>Use Google Authenticator to scan this QR code:</p>
+        <img id="qrImage" alt="Scan QR" style="max-width: 200px; margin: 10px 0;" />
+        <input type="text" id="mfaCode" placeholder="Enter 6-digit MFA code" class="input-label" />
+        <button onclick="verifyMFA()" class="login-btn" style="margin-top: 10px;">Verify MFA</button>
+        <div class="error" id="mfaError"></div>
+      </div>
+
+      <div class="signup-footer">
+        Already have an account? <a href="/index.html" class="link">Sign in</a>
       </div>
     </div>
 
@@ -58,87 +55,78 @@
             <div class="cube cube3"></div>
           </div>
         </div>
-        <div class="right-title">Welcome to Finmark</div>
+        <div class="right-title">Secure your Finmark account</div>
       </div>
     </div>
   </div>
 
+  <!-- JavaScript -->
   <script>
-    const registerForm = document.getElementById('registerForm');
-    const mfaSection = document.getElementById('mfaSection');
-    const qrCode = document.getElementById('qrCode');
-    const errorMsg = document.getElementById('errorMsg');
-    const spinner = document.getElementById('spinner');
-    const registerBtnText = document.getElementById('registerBtnText');
-    const registerBtn = document.getElementById('registerBtn');
-
-    let registeredEmail = '';
-
-    registerForm.addEventListener('submit', async function (e) {
+    // Handle registration submission
+    document.getElementById('registerForm').addEventListener('submit', async function (e) {
       e.preventDefault();
-      const name = document.getElementById('name').value.trim();
+
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value.trim();
+      const errorDiv = document.getElementById('registerError');
 
-      if (!name || !email || !password) {
-        errorMsg.textContent = 'Please fill in all fields.';
-        return;
-      }
-
-      spinner.style.display = 'inline-block';
-      registerBtnText.style.display = 'none';
-      registerBtn.disabled = true;
+      errorDiv.textContent = '';
 
       try {
-        const res = await fetch('http://localhost:3000/api/auth/register', {
+        const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, password })
+          body: JSON.stringify({ email, password }),
         });
+
         const data = await res.json();
 
-        if (res.ok && data.qrCode) {
-          registeredEmail = email;
-          qrCode.src = data.qrCode;
-          mfaSection.style.display = 'block';
-          registerForm.style.display = 'none';
-        } else {
-          errorMsg.textContent = data.message || 'Registration failed.';
+        if (!res.ok) {
+          errorDiv.textContent = data.message || 'Registration failed.';
+          return;
         }
+
+        // Show MFA QR code section
+        document.getElementById('qrImage').src = data.qrCode;
+        document.getElementById('mfaSection').style.display = 'block';
+        sessionStorage.setItem('pendingEmail', data.email);
       } catch (err) {
-        errorMsg.textContent = 'Something went wrong.';
-      } finally {
-        spinner.style.display = 'none';
-        registerBtnText.style.display = 'inline-block';
-        registerBtn.disabled = false;
+        errorDiv.textContent = 'Something went wrong. Please try again.';
+        console.error(err);
       }
     });
 
-    document.getElementById('verifyMfaBtn').addEventListener('click', async () => {
-      const token = document.getElementById('mfaToken').value.trim();
-      if (!token) {
-        errorMsg.textContent = 'Please enter your MFA code.';
+    // Verify MFA token
+    async function verifyMFA() {
+      const token = document.getElementById('mfaCode').value.trim();
+      const email = sessionStorage.getItem('pendingEmail');
+      const errorDiv = document.getElementById('mfaError');
+
+      if (!token || !email) {
+        errorDiv.textContent = 'Missing email or MFA token.';
         return;
       }
 
       try {
-        const res = await fetch('http://localhost:3000/api/auth/verify-mfa', {
+        const res = await fetch('/api/auth/verify-mfa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: registeredEmail, token })
+          body: JSON.stringify({ email, token }),
         });
 
         const data = await res.json();
-        if (data.token) {
+
+        if (res.ok) {
           localStorage.setItem('token', data.token);
           window.location.href = '/dashboard.html';
         } else {
-          errorMsg.textContent = data.message || 'MFA verification failed.';
+          errorDiv.textContent = data.message || 'Invalid MFA code.';
         }
       } catch (err) {
-        errorMsg.textContent = 'Something went wrong during MFA verification.';
+        errorDiv.textContent = 'Error verifying MFA.';
+        console.error(err);
       }
-    });
+    }
   </script>
 </body>
 </html>
